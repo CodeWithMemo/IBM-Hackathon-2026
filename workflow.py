@@ -4,9 +4,21 @@ Based on the workflow diagram for processing employer documents
 """
 
 import asyncio
+import os
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
+
+# Optional: Uncomment to load .env file automatically
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# IBM watsonx Orchestrate API Configuration
+# Get API keys from environment variables or use placeholders
+WATSONX_API_KEY = os.getenv("WATSONX_API_KEY", "YOUR_WATSONX_API_KEY_HERE")
+WATSONX_PROJECT_ID = os.getenv("WATSONX_PROJECT_ID", "YOUR_WATSONX_PROJECT_ID_HERE")
+WATSONX_URL = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+WATSONX_INSTANCE_ID = os.getenv("WATSONX_INSTANCE_ID", "YOUR_WATSONX_INSTANCE_ID_HERE")
 
 
 class Decision(Enum):
@@ -135,11 +147,43 @@ class CompletenessConsistencyAgent:
 class ControlOrchestratorAgent:
     """Main orchestrator that coordinates the workflow"""
     
-    def __init__(self):
+    def __init__(self, 
+                 api_key: Optional[str] = None,
+                 project_id: Optional[str] = None,
+                 url: Optional[str] = None,
+                 instance_id: Optional[str] = None):
+        """
+        Initialize orchestrator with IBM watsonx Orchestrate credentials
+        
+        Args:
+            api_key: IBM watsonx API key (defaults to WATSONX_API_KEY env var)
+            project_id: IBM watsonx Project ID (defaults to WATSONX_PROJECT_ID env var)
+            url: IBM watsonx service URL (defaults to WATSONX_URL env var)
+            instance_id: IBM watsonx Instance ID (defaults to WATSONX_INSTANCE_ID env var)
+        """
+        # Use provided values or fall back to environment variables or defaults
+        self.api_key = api_key or WATSONX_API_KEY
+        self.project_id = project_id or WATSONX_PROJECT_ID
+        self.url = url or WATSONX_URL
+        self.instance_id = instance_id or WATSONX_INSTANCE_ID
+        
+        # Validate API key is set (not placeholder)
+        if self.api_key == "YOUR_WATSONX_API_KEY_HERE":
+            print("⚠️  WARNING: Using placeholder API key. Set WATSONX_API_KEY environment variable.")
+        
+        # Initialize agents
         self.job_agent = JobSpecialtyAgent()
         self.beneficiary_agent = BeneficiaryStatusAgent()
         self.employer_agent = EmployerControlCompanyAgent()
         self.consistency_agent = CompletenessConsistencyAgent()
+        
+        # Store watsonx configuration for future API calls
+        self._watsonx_config = {
+            "api_key": self.api_key,
+            "project_id": self.project_id,
+            "url": self.url,
+            "instance_id": self.instance_id
+        }
     
     async def process_documents(self, documents: List[Document]) -> Decision:
         """
@@ -155,6 +199,7 @@ class ControlOrchestratorAgent:
         
         # Step 1: Orchestrator receives documents
         print(f"\n[Control Orchestrator] Received {len(documents)} documents")
+        print(f"[Control Orchestrator] Using watsonx Project ID: {self.project_id[:8]}..." if len(self.project_id) > 8 else f"[Control Orchestrator] Using watsonx Project ID: {self.project_id}")
         
         # Step 2: Parallel processing by specialized agents
         print("\n[Control Orchestrator] Dispatching to specialized agents (parallel processing)...")
